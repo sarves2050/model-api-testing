@@ -1,0 +1,35 @@
+# FastAPI & Uvicorn
+fastapi
+uvicorn
+gunicorn
+
+# MongoDB Database
+motor
+pymongo
+
+# Stable Diffusion & AI Models
+torch
+torchvision
+diffusers
+transformers
+safetensors
+accelerate
+
+# Image Processing
+opencv-python-headless
+pillow
+numpy
+argon2_cffi
+
+# CORS & Background Tasks
+python-multipart  # For handling form-data
+fastapi[all]  # Includes CORS, Pydantic, and other FastAPI utilities
+
+# JWT Authentication
+pyjwt
+passlib[bcrypt]  # For password hashing
+python-dotenv  # For environment variables
+aiofiles 
+asyncio
+pydantic
+pydantic-settings
