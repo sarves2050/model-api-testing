@@ -34,3 +34,4 @@ aiofiles
 asyncio
 pydantic
 pydantic-settings
+pip install pydantic[email]
