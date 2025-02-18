@@ -10,7 +10,7 @@ import numpy as np
 import cv2
 from PIL import Image
 from typing import Dict
-
+import pynvml 
 from db import check_database_connection
 from routes.apiSingup import router as auth_router
 from routes.apiLogin import router as login_router  
