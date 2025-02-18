@@ -60,7 +60,8 @@ def calculate_sharpness(image: Image.Image) -> float:
 async def generate_image_async(pipe, prompt):
     loop = asyncio.get_event_loop()
     try:
-        with torch.cuda.amp.autocast():  # Use AMP for mixed precision
+        with torch.amp.autocast(device_type='cuda', dtype=torch.float16):  # Specify device type and dtype
+            # Ensure the prompt is processed in float16
             return await loop.run_in_executor(None, lambda: pipe(prompt).images[0])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
