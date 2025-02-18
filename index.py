@@ -1,7 +1,7 @@
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from diffusers import StableDiffusionXLPipeline, StableDiffusionPipeline
+from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
 import torch
 from io import BytesIO
 from fastapi.responses import StreamingResponse
@@ -14,9 +14,8 @@ from db import check_database_connection
 from routes.apiSingup import router as auth_router
 from routes.apiLogin import router as login_router  
 from routes.chat import router as chat_router
-from routes.storeDataApi import router as store_router
+from  routes.storeDataApi import router as store_router
 from routes.contactApi import router as contact_router
-
 # Start backend cmd: python -m uvicorn index:app --host 0.0.0.0 --port 8000 --workers 1 --reload
 app = FastAPI()
 
@@ -28,7 +27,7 @@ app.include_router(contact_router, prefix='/api/bitbee')
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://bitbeeai.com", "https://www.bitbeeai.com", "https://testingbitbeeai.netlify.app"],  
+    allow_origins=["http://localhost:5173" , "https://bitbeeai.com" , "https://www.bitbeeai.com" ,"https://testingbitbeeai.netlify.app" ],  
     allow_credentials=True,  
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
     allow_headers=["*"],
@@ -38,11 +37,15 @@ app.add_middleware(
 async def startup_db():
     await check_database_connection()
 
-# Load model once during startup to avoid loading repeatedly
-fine_model_path = 'bit0.1'         
+
+
+fine_model_path = 'bit0.1'        
+
+# Initialize models
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float16).to(device)
+
+pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float32).to(device)
 
 class PromptRequest(BaseModel):
     prompt: str
@@ -65,25 +68,21 @@ async def generate_image_async(pipe, prompt):
 
 @app.post("/api/images/generate")
 async def generate_xl_image(request: PromptRequest):
-    # Use no_grad for faster inference
-    with torch.no_grad():
-        # Mixed precision inference
-        with torch.cuda.amp.autocast(enabled=True):
-            image_xl = await generate_image_async(pipe_xl, request.prompt)
-    
+    image_xl = await generate_image_async(pipe_xl, request.prompt)
     sharpness_xl = calculate_sharpness(image_xl)
 
-    # Optimize image saving by using a more efficient format like WEBP or JPEG
     img_byte_array = BytesIO()
-    image_xl.save(img_byte_array, format="JPEG")  # Change to JPEG to reduce size
+    image_xl.save(img_byte_array, format="PNG")
     img_byte_array.seek(0)
 
     headers = {"Sharpness": str(sharpness_xl), "Generated-By": "Main Model Bee"}
-    return StreamingResponse(img_byte_array, media_type="image/jpeg", headers=headers)
+    return StreamingResponse(img_byte_array, media_type="image/png", headers=headers)
+
+
 
 @app.get("/")
 async def health_check():
     """
     Health check endpoint to verify API status.
     """
-    return {"status": "success", "message": "Jai Shree RAM BitbeeAI API is running!"}
+    return {"status": "success", "message": " Jai Shree RAM BitbeeAI API is running!"}
