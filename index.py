@@ -1,8 +1,8 @@
+import torch
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from diffusers import StableDiffusionXLPipeline
-import torch
 from io import BytesIO
 from fastapi.responses import StreamingResponse
 import numpy as np
@@ -19,7 +19,13 @@ from routes.contactApi import router as contact_router
 
 app = FastAPI()
 
-# CORS Configuration
+# ✅ Suppress PyTorch Dynamo Graph Break Warnings
+torch._dynamo.config.suppress_errors = True
+
+# ✅ Enable TensorFloat32 Precision for Better GPU Performance
+torch.set_float32_matmul_precision('high')
+
+# ✅ CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "https://bitbeeai.com", "https://www.bitbeeai.com", "https://testingbitbeeai.netlify.app"],  
@@ -29,22 +35,29 @@ app.add_middleware(
 )
 
 # ✅ Check CUDA Availability
-device = "cuda" if torch.cuda.is_available() else "cpu"
-dtype = torch.float16 if device == "cuda" else torch.float32
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+dtype = torch.float16 if device.type == "cuda" else torch.float32
 
-if device == "cuda":
+if device.type == "cuda":
     gpu_name = torch.cuda.get_device_name(0)
     print(f"🚀 CUDA Available! Using GPU: {gpu_name}")
 else:
     print("⚠️ CUDA not available. Using CPU!")
 
-# ✅ Load Fine-tuned Model (Ensure the model is already downloaded)
-fine_model_path = 'bit0.1'        
+# ✅ Load Fine-tuned Model
+fine_model_path = 'bit0.1'
 pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=dtype).to(device)
 
-# ✅ Compile Model for Faster Inference
-if torch.__version__ >= "2.0" and device == "cuda":
+# ✅ Compile Model for Faster Inference (Only for PyTorch 2.0+)
+if torch.__version__ >= "2.0" and device.type == "cuda":
     pipe_xl = torch.compile(pipe_xl)
+
+# ✅ Register API Routes
+app.include_router(auth_router, prefix="/api")
+app.include_router(login_router, prefix="/api")
+app.include_router(chat_router, prefix="/api")
+app.include_router(store_router, prefix="/api")
+app.include_router(contact_router, prefix="/api")
 
 class PromptRequest(BaseModel):
     prompt: str
@@ -64,8 +77,8 @@ async def generate_image_async(pipe, prompt):
     """
     loop = asyncio.get_event_loop()
     
-    # ✅ Correct autocast usage
-    with torch.amp.autocast(device):
+    # ✅ Correct autocast usage for PyTorch
+    with torch.amp.autocast(device_type="cuda" if device.type == "cuda" else "cpu"):
         return await loop.run_in_executor(None, lambda: pipe(prompt).images[0])
 
 @app.post("/api/images/generate")
