@@ -45,7 +45,7 @@ async def startup_db():
 fine_model_path = 'bit0.1'
 
 # Initialize models
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Use the correct model (Stable Diffusion XL)
 pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float32).to(device)
@@ -68,8 +68,8 @@ async def generate_image_async(pipe, prompt):
     """
     loop = asyncio.get_event_loop()
 
-    # Use autocast to enable mixed precision (AMP)
-    with autocast("cuda"):
+    # Use autocast with correct device type (torch.device('cuda'))
+    with autocast(device):
         return await loop.run_in_executor(None, lambda: pipe(prompt).images[0])
 
 @app.post("/api/images/generate")
