@@ -10,6 +10,7 @@ import numpy as np
 import cv2
 from PIL import Image
 from typing import Dict
+import pynvml  # Import the pynvml library
 
 from db import check_database_connection
 from routes.apiSingup import router as auth_router
@@ -28,7 +29,7 @@ app.include_router(contact_router, prefix='/api/bitbee')
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://bitbeeai.com", "https://www.bitbeeai.com", "https://testingbitbeeai.netlify.app"],
+    allow_origins=["http://localhost:5173", "https://bitbeeai.com", "https://www.bitbeeai.com" ,"https://testingbitbeeai.netlify.app"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -40,10 +41,12 @@ async def startup_db():
 
 fine_model_path = 'bit0.1'
 
+# Use mixed precision if supported
 device = "cuda" if torch.cuda.is_available() else "cpu"
-torch.backends.cudnn.benchmark = True  # Optimize performance for your specific hardware
-
-pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float16).to(device)
+pipe_xl = StableDiffusionXLPipeline.from_pretrained(
+    fine_model_path, 
+    torch_dtype=torch.float16 if device == "cuda" else torch.float32
+).to(device)
 
 class PromptRequest(BaseModel):
     user_id: str
@@ -60,9 +63,8 @@ def calculate_sharpness(image: Image.Image) -> float:
 async def generate_image_async(pipe, prompt):
     loop = asyncio.get_event_loop()
     try:
-        with torch.amp.autocast(device_type='cuda', dtype=torch.float16):  # Specify device type and dtype
-            # Ensure the prompt is processed in float16
-            return await loop.run_in_executor(None, lambda: pipe(prompt).images[0])
+        # Consider using batch processing if possible
+        return await loop.run_in_executor(None, lambda: pipe(prompt).images[0])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
 
@@ -99,3 +101,23 @@ async def retrieve_image(user_id: str):
 @app.get("/")
 async def health_check():
     return {"status": "success", "message": "Jai Shree RAM BitbeeAI API is running!"}
+
+@app.get("/api/gpu/stats")
+async def get_gpu_stats():
+    try:
+        pynvml.nvmlInit()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)  # Assuming a single GPU
+        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
+
+        gpu_stats = {
+            "memory_total": mem_info.total,
+            "memory_used": mem_info.used,
+            "memory_free": mem_info.free,
+            "gpu_utilization": utilization.gpu,
+            "memory_utilization": utilization.memory
+        }
+        pynvml.nvmlShutdown()
+        return gpu_stats
+    except pynvml.NVMLError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get GPU stats: {str(e)}")
