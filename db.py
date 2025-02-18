@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # MongoDB connection string from .env
-MONGO_URI = os.getenv("MONGODB_URL" )
+MONGO_URI = os.getenv("MONGODB_URL","mongodb+srv://nanu14581:nanu123@cluster0.xwe83.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0" )
 print(MONGO_URI)
 # Connect to MongoDB
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI)
