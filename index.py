@@ -14,8 +14,9 @@ from db import check_database_connection
 from routes.apiSingup import router as auth_router
 from routes.apiLogin import router as login_router  
 from routes.chat import router as chat_router
-from  routes.storeDataApi import router as store_router
+from routes.storeDataApi import router as store_router
 from routes.contactApi import router as contact_router
+
 # Start backend cmd: python -m uvicorn index:app --host 0.0.0.0 --port 8000 --workers 1 --reload
 app = FastAPI()
 
@@ -27,7 +28,7 @@ app.include_router(contact_router, prefix='/api/bitbee')
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173" , "https://bitbeeai.com" , "https://www.bitbeeai.com" ,"https://testingbitbeeai.netlify.app" ],  
+    allow_origins=["http://localhost:5173", "https://bitbeeai.com", "https://www.bitbeeai.com", "https://testingbitbeeai.netlify.app"],  
     allow_credentials=True,  
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"], 
     allow_headers=["*"],
@@ -37,15 +38,14 @@ app.add_middleware(
 async def startup_db():
     await check_database_connection()
 
+# Initialize model path
+fine_model_path = 'bit0.1'  # Path to the fine-tuned model
 
-
-fine_model_path = 'bit0.1'        
-
-# Initialize models
+# Initialize device for GPU or CPU
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-
-pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float16).to(device)
+# Load the model with proper dtype (using float32 for stability)
+pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float32).to(device)
 
 class PromptRequest(BaseModel):
     prompt: str
@@ -68,17 +68,23 @@ async def generate_image_async(pipe, prompt):
 
 @app.post("/api/images/generate")
 async def generate_xl_image(request: PromptRequest):
+    """
+    Generate an image based on the provided prompt, calculate sharpness, and return the image.
+    """
+    # Generate image asynchronously
     image_xl = await generate_image_async(pipe_xl, request.prompt)
+    
+    # Calculate sharpness of the generated image
     sharpness_xl = calculate_sharpness(image_xl)
 
+    # Prepare the image for response
     img_byte_array = BytesIO()
     image_xl.save(img_byte_array, format="PNG")
     img_byte_array.seek(0)
 
+    # Return the image as streaming response with additional headers
     headers = {"Sharpness": str(sharpness_xl), "Generated-By": "Main Model Bee"}
     return StreamingResponse(img_byte_array, media_type="image/png", headers=headers)
-
-
 
 @app.get("/")
 async def health_check():
