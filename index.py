@@ -1,7 +1,7 @@
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from diffusers import StableDiffusionPipeline, StableDiffusionXLPipeline
+from diffusers import StableDiffusionXLPipeline, StableDiffusionPipeline
 import torch
 from io import BytesIO
 from fastapi.responses import StreamingResponse
@@ -38,14 +38,11 @@ app.add_middleware(
 async def startup_db():
     await check_database_connection()
 
-# Initialize model path
-fine_model_path = 'bit0.1'  # Path to the fine-tuned model
-
-# Initialize device for GPU or CPU
+# Load model once during startup to avoid loading repeatedly
+fine_model_path = 'bit0.1'         
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# Load the model with proper dtype (using float32 for stability)
-pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float32).to(device)
+pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float16).to(device)
 
 class PromptRequest(BaseModel):
     prompt: str
@@ -68,27 +65,25 @@ async def generate_image_async(pipe, prompt):
 
 @app.post("/api/images/generate")
 async def generate_xl_image(request: PromptRequest):
-    """
-    Generate an image based on the provided prompt, calculate sharpness, and return the image.
-    """
-    # Generate image asynchronously
-    image_xl = await generate_image_async(pipe_xl, request.prompt)
+    # Use no_grad for faster inference
+    with torch.no_grad():
+        # Mixed precision inference
+        with torch.cuda.amp.autocast(enabled=True):
+            image_xl = await generate_image_async(pipe_xl, request.prompt)
     
-    # Calculate sharpness of the generated image
     sharpness_xl = calculate_sharpness(image_xl)
 
-    # Prepare the image for response
+    # Optimize image saving by using a more efficient format like WEBP or JPEG
     img_byte_array = BytesIO()
-    image_xl.save(img_byte_array, format="PNG")
+    image_xl.save(img_byte_array, format="JPEG")  # Change to JPEG to reduce size
     img_byte_array.seek(0)
 
-    # Return the image as streaming response with additional headers
     headers = {"Sharpness": str(sharpness_xl), "Generated-By": "Main Model Bee"}
-    return StreamingResponse(img_byte_array, media_type="image/png", headers=headers)
+    return StreamingResponse(img_byte_array, media_type="image/jpeg", headers=headers)
 
 @app.get("/")
 async def health_check():
     """
     Health check endpoint to verify API status.
     """
-    return {"status": "success", "message": " Jai Shree RAM BitbeeAI API is running!"}
+    return {"status": "success", "message": "Jai Shree RAM BitbeeAI API is running!"}
