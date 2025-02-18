@@ -10,78 +10,61 @@ import numpy as np
 import cv2
 from PIL import Image
 from typing import Dict
-import pynvml
+
 from db import check_database_connection
 from routes.apiSingup import router as auth_router
 from routes.apiLogin import router as login_router  
 from routes.chat import router as chat_router
-from routes.storeDataApi import router as store_router
+from  routes.storeDataApi import router as store_router
 from routes.contactApi import router as contact_router
 
-# Initialize FastAPI app
 app = FastAPI()
 
-# Include authentication & API routes
 app.include_router(auth_router, prefix='/api/bitbee')
 app.include_router(login_router, prefix='/api/bitbee')
 app.include_router(chat_router, prefix='/api/bitbee')
 app.include_router(store_router, prefix='/api/bitbee/random')
 app.include_router(contact_router, prefix='/api/bitbee')
 
-# Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://bitbeeai.com", "https://www.bitbeeai.com", "https://testingbitbeeai.netlify.app"],
+    allow_origins=["http://localhost:5173", "https://bitbeeai.com", "https://www.bitbeeai.com" ,"https://testingbitbeeai.netlify.app"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# Database startup check
 @app.on_event("startup")
 async def startup_db():
     await check_database_connection()
 
-# Path to fine-tuned model
 fine_model_path = 'bit0.1'
 
-# Load model with optimizations
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
-pipe_xl = StableDiffusionXLPipeline.from_pretrained(
-    fine_model_path, torch_dtype=torch.float16  # Use float16 for speed
-).to(device)
+pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float16).to(device)
 
-# Enable optimizations
-pipe_xl.enable_xformers_memory_efficient_attention()  # Speeds up attention layers
-pipe_xl.enable_model_cpu_offload()  # Offloads unused model parts to CPU
-pipe_xl.enable_vae_slicing()  # Improves VAE speed
-pipe_xl.safety_checker = None  # Remove safety checker (optional, speeds up processing)
-
-# Request Model
 class PromptRequest(BaseModel):
     user_id: str
-    prompt: str = Field(..., max_length=50)
+    prompt: str = Field(..., max_length=50)  
 
-# Store generated images
 generated_images: Dict[str, BytesIO] = {}
 
-# Function to calculate image sharpness (optional)
 def calculate_sharpness(image: Image.Image) -> float:
     image_array = np.array(image)
     gray_image = cv2.cvtColor(image_array, cv2.COLOR_RGB2GRAY)
     laplacian = cv2.Laplacian(gray_image, cv2.CV_64F)
     return laplacian.var()
 
-# Run image generation asynchronously
 async def generate_image_async(pipe, prompt):
     loop = asyncio.get_event_loop()
     try:
-        return await loop.run_in_executor(None, lambda: pipe(prompt, num_inference_steps=20).images[0])  # Reduce steps for speed
+        return await loop.run_in_executor(None, lambda: pipe(prompt).images[0])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
 
-# Semaphore to prevent overload
-semaphore = asyncio.Semaphore(2)  # Increase concurrency
+
+semaphore = asyncio.Semaphore(2)  
 
 @app.post("/api/images/generate")
 async def generate_xl_image(request: PromptRequest):
@@ -94,9 +77,10 @@ async def generate_xl_image(request: PromptRequest):
             image_xl.save(img_byte_array, format="PNG")
             img_byte_array.seek(0)
 
+       
             generated_images[request.user_id] = img_byte_array
 
-            headers = {"Sharpness": str(sharpness_xl), "Generated-By": "BitbeeAI XL Model"}
+            headers = {"Sharpness": str(sharpness_xl), "Generated-By": "Main Model Bee"}
             return {"message": "Image generated successfully", "user_id": request.user_id}
         except HTTPException as e:
             raise
@@ -108,29 +92,9 @@ async def retrieve_image(user_id: str):
     if user_id not in generated_images:
         raise HTTPException(status_code=404, detail="Image not found for the given user ID")
 
-    img_byte_array = generated_images.pop(user_id)
+    img_byte_array = generated_images.pop(user_id)  
     return StreamingResponse(img_byte_array, media_type="image/png")
 
 @app.get("/")
 async def health_check():
-    return {"status": "success", "message": "🚀 Jai Shree RAM BitbeeAI API is running!"}
-
-@app.get("/api/gpu/stats")
-async def get_gpu_stats():
-    try:
-        pynvml.nvmlInit()
-        handle = pynvml.nvmlDeviceGetHandleByIndex(0)  # Assuming a single GPU
-        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-        utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
-
-        gpu_stats = {
-            "memory_total": mem_info.total,
-            "memory_used": mem_info.used,
-            "memory_free": mem_info.free,
-            "gpu_utilization": utilization.gpu,
-            "memory_utilization": utilization.memory
-        }
-        pynvml.nvmlShutdown()
-        return gpu_stats
-    except pynvml.NVMLError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get GPU stats: {str(e)}")
+    return {"status": "success", "message": "Jai Shree RAM BitbeeAI API is running!"}
