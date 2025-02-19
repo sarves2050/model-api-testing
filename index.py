@@ -32,8 +32,11 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # Use bfloat16 for NVIDIA L4 GPU
 torch_dtype = torch.bfloat16 if device == "cuda" else torch.float32
 
-# Load Model
-pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch_dtype).to(device)
+# Load Model with Explicit bfloat16
+pipe_xl = StableDiffusionXLPipeline.from_pretrained(
+    fine_model_path, torch_dtype=torch_dtype
+).to(device)
+pipe_xl.to(device, dtype=torch_dtype)  # Ensure full model uses bfloat16
 
 # Request Model
 class PromptRequest(BaseModel):
@@ -52,10 +55,11 @@ def calculate_sharpness(image: Image.Image) -> float:
 
 # Image Generation Function
 async def generate_image(pipe, prompt):
-    """Run the Stable Diffusion pipeline asynchronously."""
+    """Run the Stable Diffusion pipeline asynchronously with autocast."""
     try:
-        result = await asyncio.to_thread(pipe, prompt)
-        return result.images[0]
+        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):  # Enable mixed precision
+            result = await asyncio.to_thread(lambda: pipe(prompt).images[0])  # Fix dtype issue
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
 
@@ -79,6 +83,7 @@ async def generate_xl_image(request: PromptRequest):
 
             # Free GPU memory
             torch.cuda.empty_cache()
+            torch.cuda.synchronize()
 
             return {"message": "Image generated successfully", "user_id": request.user_id, "sharpness": sharpness_xl}
         except HTTPException:
