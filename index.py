@@ -15,7 +15,7 @@ from db import check_database_connection
 from routes.apiSingup import router as auth_router
 from routes.apiLogin import router as login_router  
 from routes.chat import router as chat_router
-from  routes.storeDataApi import router as store_router
+from routes.storeDataApi import router as store_router
 from routes.contactApi import router as contact_router
 
 app = FastAPI()
@@ -69,7 +69,12 @@ semaphore = asyncio.Semaphore(2)
 async def generate_xl_image(request: PromptRequest):
     async with semaphore:
         try:
-            image_xl = await generate_image_async(pipe_xl, request.prompt)
+            # Convert prompt to float16 if necessary
+            prompt = request.prompt
+            if isinstance(prompt, torch.Tensor):
+                prompt = prompt.to(torch.float16)
+
+            image_xl = await generate_image_async(pipe_xl, prompt)
             sharpness_xl = calculate_sharpness(image_xl)
 
             img_byte_array = BytesIO()
