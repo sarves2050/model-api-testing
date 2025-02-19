@@ -63,8 +63,8 @@ def calculate_sharpness(image: Image.Image) -> float:
 async def generate_image_async(pipe, prompt):
     loop = asyncio.get_event_loop()
     try:
-        with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
-            return await loop.run_in_executor(None, lambda: pipe(prompt).images[0])
+        # Ensure the prompt is processed in the correct dtype
+        return await loop.run_in_executor(None, lambda: pipe(prompt).images[0])
     except Exception as e:
         logger.error(f"Error during image generation: {e}")
         raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
@@ -79,6 +79,7 @@ async def generate_xl_image(request: PromptRequest):
             if not isinstance(prompt, (str, list)):
                 raise ValueError("Prompt must be a string or list")
 
+            # Ensure the model processes the prompt in float16
             image_xl = await generate_image_async(pipe_xl, prompt)
             sharpness_xl = calculate_sharpness(image_xl)
 
