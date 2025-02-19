@@ -50,7 +50,7 @@ fine_model_path = 'bit0.1'
 
 # Check for CUDA availability
 device = "cuda" if torch.cuda.is_available() else "cpu"
-dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+dtype = torch.float32 if torch.cuda.is_available() else torch.float32
 
 # Load the model with optimizations
 try:
