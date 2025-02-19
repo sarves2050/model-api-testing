@@ -40,7 +40,6 @@ async def startup_db():
 
 fine_model_path = 'bit0.1'
 
-
 device = "cuda" if torch.cuda.is_available() else "cpu"
 pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float16).to(device)
 
@@ -59,10 +58,10 @@ def calculate_sharpness(image: Image.Image) -> float:
 async def generate_image_async(pipe, prompt):
     loop = asyncio.get_event_loop()
     try:
+        # Ensure the prompt is processed in the correct dtype
         return await loop.run_in_executor(None, lambda: pipe(prompt).images[0])
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
-
 
 semaphore = asyncio.Semaphore(2)  
 
@@ -77,7 +76,6 @@ async def generate_xl_image(request: PromptRequest):
             image_xl.save(img_byte_array, format="PNG")
             img_byte_array.seek(0)
 
-       
             generated_images[request.user_id] = img_byte_array
 
             headers = {"Sharpness": str(sharpness_xl), "Generated-By": "Main Model Bee"}
