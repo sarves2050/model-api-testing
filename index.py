@@ -75,10 +75,13 @@ async def generate_xl_image(request: PromptRequest):
     async with semaphore:
         try:
             prompt = request.prompt
-            if isinstance(prompt, torch.Tensor):
-                prompt = prompt.to(torch.float16)
-            else:
-                prompt = torch.tensor(prompt, dtype=torch.float16)
+            # Ensure prompt is a string and handle it appropriately
+            if not isinstance(prompt, str):
+                raise ValueError("Prompt must be a string")
+
+            # Convert prompt to a tensor if necessary (depends on model requirements)
+            # If the model expects a tensor, ensure it's converted correctly
+            # prompt_tensor = torch.tensor([some_numeric_representation_of_prompt], dtype=torch.float16)
 
             image_xl = await generate_image_async(pipe_xl, prompt)
             sharpness_xl = calculate_sharpness(image_xl)
