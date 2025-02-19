@@ -10,6 +10,7 @@ import numpy as np
 import cv2
 from PIL import Image
 from typing import Dict
+import logging
 
 from db import check_database_connection
 from routes.apiSingup import router as auth_router
@@ -17,6 +18,10 @@ from routes.apiLogin import router as login_router
 from routes.chat import router as chat_router
 from routes.storeDataApi import router as store_router
 from routes.contactApi import router as contact_router
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
@@ -28,7 +33,7 @@ app.include_router(contact_router, prefix='/api/bitbee')
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://bitbeeai.com", "https://www.bitbeeai.com" ,"https://testingbitbeeai.netlify.app"],
+    allow_origins=["http://localhost:5173", "https://bitbeeai.com", "https://www.bitbeeai.com", "https://testingbitbeeai.netlify.app"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -45,7 +50,7 @@ pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype
 
 class PromptRequest(BaseModel):
     user_id: str
-    prompt: str = Field(..., max_length=50)  
+    prompt: str = Field(..., max_length=50)
 
 generated_images: Dict[str, BytesIO] = {}
 
@@ -58,18 +63,17 @@ def calculate_sharpness(image: Image.Image) -> float:
 async def generate_image_async(pipe, prompt):
     loop = asyncio.get_event_loop()
     try:
-        # Ensure the prompt is processed in the correct dtype
         return await loop.run_in_executor(None, lambda: pipe(prompt).images[0])
     except Exception as e:
+        logger.error(f"Error during image generation: {e}")
         raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
 
-semaphore = asyncio.Semaphore(2)  
+semaphore = asyncio.Semaphore(2)
 
 @app.post("/api/images/generate")
 async def generate_xl_image(request: PromptRequest):
     async with semaphore:
         try:
-            # Convert prompt to float16 if necessary
             prompt = request.prompt
             if isinstance(prompt, torch.Tensor):
                 prompt = prompt.to(torch.float16)
@@ -88,8 +92,10 @@ async def generate_xl_image(request: PromptRequest):
             headers = {"Sharpness": str(sharpness_xl), "Generated-By": "Main Model Bee"}
             return {"message": "Image generated successfully", "user_id": request.user_id}
         except HTTPException as e:
+            logger.error(f"HTTPException: {e.detail}")
             raise
         except Exception as e:
+            logger.error(f"Unexpected error: {e}")
             raise HTTPException(status_code=500, detail="An unexpected error occurred")
 
 @app.get("/api/images/retrieve/{user_id}")
@@ -97,7 +103,7 @@ async def retrieve_image(user_id: str):
     if user_id not in generated_images:
         raise HTTPException(status_code=404, detail="Image not found for the given user ID")
 
-    img_byte_array = generated_images.pop(user_id)  
+    img_byte_array = generated_images.pop(user_id)
     return StreamingResponse(img_byte_array, media_type="image/png")
 
 @app.get("/")
