@@ -32,8 +32,8 @@ from fastapi import HTTPException
 
 def send_otp_email(email: str, otp: str):
     """Send OTP to user's email with a professional and well-designed format."""
-    EMAIL_USER = os.getenv("EMAIL_USER")
-    EMAIL_PASS = os.getenv("EMAIL_PASS")
+    EMAIL_USER = os.getenv("EMAIL_USER" ,"zoro94081@gmail.com")
+    EMAIL_PASS = os.getenv("EMAIL_PASS" , "gzcbobmgjuduotxk")
 
     if not EMAIL_USER or not EMAIL_PASS:
         raise HTTPException(status_code=500, detail="Email credentials are missing in environment variables.")
