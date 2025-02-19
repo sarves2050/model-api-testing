@@ -77,10 +77,8 @@ async def generate_xl_image(request: PromptRequest):
             image_xl.save(img_byte_array, format="PNG")
             img_byte_array.seek(0)
 
-       
             generated_images[request.user_id] = img_byte_array
 
-            headers = {"Sharpness": str(sharpness_xl), "Generated-By": "Main Model Bee"}
             return {"message": "Image generated successfully", "user_id": request.user_id}
         except HTTPException as e:
             raise
