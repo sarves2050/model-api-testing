@@ -83,7 +83,7 @@ async def generate_image(pipe, prompt):
         raise HTTPException(status_code=500, detail=f"Image generation failed: {str(e)}")
 
 # Semaphore to Limit Concurrent Requests
-semaphore = asyncio.Semaphore(3)  # Allows 3 parallel generations
+semaphore = asyncio.Semaphore(1)  # Allows 3 parallel generations
 
 # Image Generation API
 @app.post("/api/images/generate")
