@@ -46,7 +46,7 @@ async def startup_db():
 fine_model_path = 'bit0.1'
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float16).to(device)
+pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float32).to(device)
 
 class PromptRequest(BaseModel):
     user_id: str
@@ -63,7 +63,7 @@ def calculate_sharpness(image: Image.Image) -> float:
 async def generate_image_async(pipe, prompt):
     loop = asyncio.get_event_loop()
     try:
-        with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
+        with torch.amp.autocast(device_type='cuda', dtype=torch.float32):
             return await loop.run_in_executor(None, lambda: pipe(prompt).images[0])
     except Exception as e:
         logger.error(f"Error during image generation: {e}")
