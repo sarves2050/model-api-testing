@@ -32,7 +32,7 @@ app.include_router(contact_router, prefix='/api/bitbee')
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://bitbeeai.com", "https://www.bitbeeai.netlify.app"],
+    allow_origins=["http://localhost:5173", "https://bitbeeai.com", "https://www.bitbeeai.netlify.app" ,  "https://api.bitbeeai.com"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
