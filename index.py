@@ -6,13 +6,28 @@ from io import BytesIO
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, constr
+from pydantic import BaseModel, Field
 from diffusers import StableDiffusionXLPipeline
 from PIL import Image
 from typing import Dict
 
+
+from db import check_database_connection
+from routes.apiSingup import router as auth_router
+from routes.apiLogin import router as login_router  
+from routes.chat import router as chat_router
+from  routes.storeDataApi import router as store_router
+from routes.contactApi import router as contact_router
+
+
 # Initialize FastAPI App
 app = FastAPI()
+
+app.include_router(auth_router, prefix='/api/bitbee')
+app.include_router(login_router, prefix='/api/bitbee')
+app.include_router(chat_router, prefix='/api/bitbee')
+app.include_router(store_router, prefix='/api/bitbee/random')
+app.include_router(contact_router, prefix='/api/bitbee')
 
 # CORS Configuration
 app.add_middleware(
@@ -22,6 +37,10 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_db():
+    await check_database_connection()
 
 # Model Path
 fine_model_path = 'bit0.1'
@@ -41,7 +60,7 @@ pipe_xl.to(device, dtype=torch_dtype)  # Ensure full model uses bfloat16
 # Request Model
 class PromptRequest(BaseModel):
     user_id: str
-    prompt: constr(max_length=50)  # Limit prompt length to 50 characters
+    prompt: str = Field(..., max_length=100)    # Limit prompt length to 50 characters
 
 # In-memory store for generated images
 generated_images: Dict[str, BytesIO] = {}
