@@ -46,7 +46,7 @@ async def startup_db():
 fine_model_path = 'bit0.1'
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float16).to(device)
+pipe_xl = StableDiffusionXLPipeline.from_pretrained(fine_model_path, torch_dtype=torch.float32).to(device)
 
 class PromptRequest(BaseModel):
     user_id: str
