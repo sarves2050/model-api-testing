@@ -81,9 +81,10 @@ async def generate_xl_image(request: PromptRequest):
 
             # Convert prompt to a tensor if necessary (depends on model requirements)
             # If the model expects a tensor, ensure it's converted correctly
-            # prompt_tensor = torch.tensor([some_numeric_representation_of_prompt], dtype=torch.float16)
+            # Convert prompt to float16 if necessary
+            prompt_tensor = torch.tensor([ord(c) for c in prompt], dtype=torch.float16).to(device)
 
-            image_xl = await generate_image_async(pipe_xl, prompt)
+            image_xl = await generate_image_async(pipe_xl, prompt_tensor)
             sharpness_xl = calculate_sharpness(image_xl)
 
             img_byte_array = BytesIO()
