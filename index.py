@@ -60,7 +60,7 @@ pipe_xl.to(device, dtype=torch_dtype)  # Ensure full model uses bfloat16
 # Request Model
 class PromptRequest(BaseModel):
     user_id: str
-    prompt: str = Field(..., max_length=50)    # Limit prompt length to 50 characters
+    prompt: str = Field(..., max_length=150)    # Limit prompt length to 50 characters
 
 # In-memory store for generated images
 generated_images: Dict[str, BytesIO] = {}
